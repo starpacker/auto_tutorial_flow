@@ -32,11 +32,8 @@ llm:
 2. 把论文和代码放进 `input/` 目录  
    示例：`input/fpm.pdf` 和 `input/code.md`
 
-3. 修改 `test.sh` 中的文件名，或直接运行：
-```bash
-python run_pipeline.py --pdf input/fpm.pdf --code input/code.md --output_dir output/
-```
-
+3. 修改 `test.sh` 中的文件名
+   
 4. 运行：
 ```bash
 bash test.sh
