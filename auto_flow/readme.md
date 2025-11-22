@@ -1,34 +1,45 @@
-# Paper Reproduction Pipeline
+# 论文复现流水线（简洁版 README）
 
-This repository automates the extraction, analysis, and tutorial generation from scientific PDFs (e.g., geophysics inversion papers). It produces a runnable Markdown tutorial with explanations, code, and evaluations.
+本仓库可将学术论文 PDF（含代码）自动转化为**可运行的中文 Markdown 教程**。
 
-## Features
-- PDF to Markdown extraction with formulas/tables/images.
-- Code extraction and classification (preprocess, forward, inverse, evaluation).
-- Section-by-section tutorial writing with consistency.
-- Final critique for completeness and runnability. (undone)
+## 功能
+- PDF → Markdown（保留公式、表格、图片）
+- 自动提取并分类代码（预处理、前向、反演、评估）
+- 按论文结构生成带详细中文讲解的教程
 
-## setup
-填入config.yaml中的llm相关信息，具体例子如下：
-""
+## 环境安装
+
+```bash
+# 1. PaddleOCR（必须）
+python -m pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+python -m pip install paddleocr
+
+# 2. 其他依赖
+pip install -r requirements.txt
+```
+
+## 使用方法
+
+1. 编辑 `config.yaml`，填入你的模型信息（示例）：
+```yaml
 llm:
   provider: openai
   api_key: sk-x4SsDbx5dWVAXHDhfFQcS9z1VId0sGOQImbLFFW4lqmMsUdz
-  model: gpt-4o 
-  temperature: 0.0  # For deterministic JSON outputs
-""
+  model: gpt-4o
+  temperature: 0.0
+```
 
-将paper.pdf和code.md放入input文件夹中，
-在test.sh中修改相应的名字：
+2. 把论文和代码放进 `input/` 目录  
+   示例：`input/fpm.pdf` 和 `input/code.md`
+
+3. 修改 `test.sh` 中的文件名，或直接运行：
+```bash
 python run_pipeline.py --pdf input/fpm.pdf --code input/code.md --output_dir output/
+```
 
-bash test.sh即可
+4. 运行：
+```bash
+bash test.sh
+```
 
-## 环境依赖的安装
-1. paddleocr的安装
-python -m pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
-python -m pip install paddleocr
-2.其余环境的安装，请参考requirements.txt
-
-
-
+完成后在 `output/` 目录得到完整的中文教程 Markdown。
