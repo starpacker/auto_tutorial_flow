@@ -24,7 +24,7 @@ pip install -r requirements.txt
 ```yaml
 llm:
   provider: openai
-  api_key: sk-x4SsDbx5dWVAXHDhfFQcS9z1VId0sGOQImbLFFW4lqmMsUdz
+  api_key: 
   model: gpt-4o
   temperature: 0.0
 ```
