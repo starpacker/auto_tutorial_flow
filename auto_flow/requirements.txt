@@ -1,0 +1,11 @@
+llama-index>=0.11.0
+openai>=1.40.0  
+pyyaml>=6.0.0
+
+
+
+#python -m pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+# test暂时还不需要
+# docker>=7.0.0  # For Critic sandbox
+# pytest>=8.0.0
+# nbformat>=5.10.0  # For notebook testing if needed

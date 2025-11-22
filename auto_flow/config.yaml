@@ -1,0 +1,148 @@
+llm:
+  provider: openai
+  api_key: sk-x4SsDbx5dWVAXHDhfFQcS9z1VId0sGOQImbLFFW4lqmMsUdz
+  model: gpt-4o 
+  temperature: 0.0  # For deterministic JSON outputs
+
+prompts:
+  refactor_data_preprocess: |
+    You are an expert scientific code refactomer.
+    From the entire paper code below, extract and rewrite ONLY the data-related part as a standalone function.
+    DO NOT include any forward modeling or inversion code.
+
+    Function must be named:
+    def load_and_preprocess_data() -> dict:
+
+    Return dict must contain at least: 
+    - observed_data: Tensor
+    - initial_model: Tensor  
+    - geometry: dict (grid, sources, receivers, etc.)
+    - metadata: any constants like dt, freq, etc.
+
+    Rules:
+    - If data is synthetic → generate it here
+    - If real → provide download link + loading code
+    - Add detailed English comments
+    - Use type hints and shape annotations
+    - NO forward/inverse code allowed, even one line!
+
+    Full paper code:
+    {full_code}
+
+    Output ONLY the function, no extra text.
+
+  refactor_forward_operator: |
+    CRITICAL: Extract the PHYSICS FORWARD MODELING part ONLY.
+    Even if it's embedded 5 layers deep in the inversion loop, you MUST isolate it perfectly.
+
+    Output exactly one pure function. Choose the best signature:
+    Preferred: def forward_operator(model: torch.Tensor, geometry: dict) -> torch.Tensor:
+    Or numpy version if paper uses numpy/scipy.
+
+    Absolute rules (violate any = fail):
+    1. NO inversion/optimizer/gradient/loss code allowed
+    2. NO data loading code
+    3. Must be deterministic and pure
+    4. Must match the paper's numerical scheme exactly (FDM/FEM/spectral etc.)
+    5. Add physics explanation comments
+    6. If multiple forward calls exist, keep only the core one
+
+    Full paper code:
+    {full_code}
+
+    Return ONLY the function.
+
+  refactor_inverse_algorithm: |
+    Rewrite ONLY the inversion/training/optimization part.
+    Must use the forward_operator as a black-box callable.
+
+    Function name:
+    def run_inversion(
+    ):
+
+    Rules:
+    - Call forward exactly like: predicted = forward_operator(current_model, geometry)
+    - Include ALL tricks: adjoint, regularization, line search, etc.
+    - NO forward modeling implementation inside!
+    - NO data loading
+
+    Full paper code:
+    {full_code}
+
+    Return ONLY the complete function.
+
+  refactor_evaluation: |
+    Create a clean evaluation function using results from above.
+
+    def evaluate_results(
+        observed_data: torch.Tensor,
+        predicted_data: torch.Tensor
+    ):
+
+    Must:
+    - Compute PSNR, SSIM, RMSE, Relative L2
+    - Plot 3 subplots and save to ./results/
+    - NO forward/inverse/data code repeated
+
+    Full paper code:
+    {full_code}
+
+  tutorial_section: |
+    You are a top scientific computing tutorial author writing "FPM-INR Paper Full Reproduction Tutorial".
+    FPM-INR refers to Fourier ptychographic microscopy image stack reconstruction using implicit neural representations.
+    
+    Paper summary information (use as reference for accuracy):
+    {summary}
+    
+    Completed sections (keep style consistent exactly):
+    {previous_sections}
+
+    Now write section {n}: {title}
+
+    Strict rules (violate any = no output):
+    1. Start with 200-400 words plain explanation: "Why this step", "Core idea", "Key math".
+    2. Ensure content aligns with the paper summary provided above.
+    3. Equations standalone with $$ .
+
+    Output ONLY this section's Markdown, no JSON/extras.
+
+  tutorial_section_with_code: |
+    You are a top scientific computing tutorial author writing "FPM-INR Paper Full Reproduction Tutorial".
+    FPM-INR refers to Fourier ptychographic microscopy image stack reconstruction using implicit neural representations.
+    
+    Paper summary information (use as reference for accuracy):
+    {summary}
+    
+    Completed sections (keep style consistent exactly):
+    {previous_sections}
+    
+    Code to reference and explain:
+    {code}
+    
+    Now write section {n}: {title}
+    
+    Strict rules (violate any = no output):
+    1. Start with 200-400 words plain explanation: "Why this step", "Core idea", "Key math".
+    2. Ensure content aligns with the paper summary provided above.
+    3. Equations standalone with $$ .
+    4. Code after "# === Full Runnable Code Below ===" separator - use the provided code as reference.
+    5. Code: Comments every 3-8 lines explaining what they do - explain the logic from the provided code.
+    6. No "just run this" lazy phrases.
+    7. When explaining code, be specific about the functions, parameters, and how they relate to the theory.
+    8. Analyze key implementation details from the provided code and connect them to the mathematical concepts.
+    
+    Output ONLY this section's Markdown, no JSON/extras.
+
+  critic_content: |
+    You are a harsh paper reproduction reviewer.
+    Check tutorial for fatal issues:
+    1. Missing key equations from original paper (compare to PDF).
+    2. Missing hyperparameters.
+    3. Incomplete dependencies (requirements.txt).
+    4. Data gen code reproduces paper figures?
+
+    List all issues, sorted by severity.
+  critic_code: |
+    # Script will run code in Docker and feed output here for LLM to review.
+
+output_dir: output/
