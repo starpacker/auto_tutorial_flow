@@ -2,7 +2,7 @@ import argparse
 import os
 import sys
 import yaml
-from extract_pdf import extract_pdf_to_md
+from extract_pdf import paddle_ocr_equation
 from refactor_code import refactor_all_code
 from tutorial_writer import write_tutorial_sections
 # from critic import run_critic
@@ -19,7 +19,8 @@ def main():
 
     try:
         # Step 1: PDF to MD
-        md_path = extract_pdf_to_md(args.pdf)
+        # md_path = extract_pdf_to_md(args.pdf)
+        md_path = paddle_ocr_equation(args.pdf)
 
         # Step 2: Code seperating
         refactored_path = refactor_all_code(args.code, config, args.output_dir)
