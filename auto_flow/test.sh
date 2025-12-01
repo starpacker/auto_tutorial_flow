@@ -1,1 +1,0 @@
-python run_pipeline.py --pdf input/fpm.pdf --code input/code.md --output_dir output/
