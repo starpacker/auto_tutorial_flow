@@ -1,0 +1,7 @@
+{
+  "load_and_preprocess_data": "PASS",
+  "_normalize_constraint_params": "PASS",
+  "forward_operator": "SKIPPED_NO_DATA",
+  "run_inversion": "FAIL",
+  "evaluate_results": "PASS"
+}
