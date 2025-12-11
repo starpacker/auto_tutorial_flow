@@ -1,0 +1,333 @@
+llm:
+  code:
+    provider: openai
+    api_key: sk-Q16sT2CI37GhzbcfGqluNhNXiecWaLi5nMVwMhW7BKZYPp74
+    base_url: https://api.whatai.cc/v1
+    model: claude-opus-4-5-20251101
+    # model: gemini-3-pro-preview
+    temperature: 0.0  # For deterministic JSON outputs
+  writer:
+    provider: openai
+    api_key: sk-l9Bz6YoNYxaLrVPdPhdhHTvQVOElJoGfncnipg0U0C5aqLzy
+    base_url: https://api.whatai.cc/v1
+    # model: claude-opus-4-5-20251101
+    model: gemini-3-pro-preview
+    temperature: 0.0  # For deterministic JSON outputs
+  verified_coder:
+    provider: openai
+    api_key: sk-l9Bz6YoNYxaLrVPdPhdhHTvQVOElJoGfncnipg0U0C5aqLzy
+    base_url: https://api.whatai.cc/v1
+    model: gpt-4o
+  embedding_model:
+   provider: openai
+   api_key: sk-l9Bz6YoNYxaLrVPdPhdhHTvQVOElJoGfncnipg0U0C5aqLzy
+   model: text-embedding-3-small
+   temperature: 0.0  # For deterministic JSON outputs
+   base_url: https://api.whatai.cc/v1
+   
+
+prompts:
+
+  clean_up_code: |
+    You are an expert computational scientist. Your task is to refactor legacy scientific code into a strictly modularized structure.
+
+    # Context
+    The provided code implements a computational imaging/inversion algorithm. It works, but it is unstructured.
+    
+    # Goal
+    Refactor the code into exactly these 4 functional components. Do NOT leave old logic in the global scope.
+
+    # Required Structure
+    1. `def load_and_preprocess_data(...) -> ...`: 
+      - Loads data from disk/arguments.
+      - Returns preprocessed tensors/arrays.
+    
+    2. `def forward_operator(x) -> y_pred`:
+      - Represents the physical model A in y = A(x).
+      - INPUT: Pure tensor/array (the latent variable).
+      - OUTPUT: Pure tensor/array (the observation).
+      - STRICTLY NO data loading inside here. Pure math only.
+    
+    3. `def run_inversion(...) -> result`:
+      - Performs the optimization/solver loop.
+      - **CRITICAL**: This function MUST call `forward_operator` explicitly during the optimization process to generate predictions.
+      - Input should include the data returned by step 1.
+    
+    4. `def evaluate_results(...)`:
+      - Calculates metrics (PSNR, SSIM, RMSE).
+      - Visualizes or saves results.
+
+    # Constraints
+    - **NO GLOBAL VARIABLES**: All data must be passed as arguments.
+    - **NO LOGIC OVERLAP**: Do not duplicate logic. If `forward_operator` defines the physics, `run_inversion` must use it, not rewrite it.
+    - **EXECUTION**: The `if __name__ == '__main__':` block must sequentially call:
+        data = load_and_preprocess_data(...)
+        res = run_inversion(data, ...)  <-- implicitly or explicitly uses forward_operator
+        evaluate_results(res, ...)
+        print("OPTIMIZATION_FINISHED_SUCCESSFULLY")  <-- You MUST print this exact string at the end.
+
+    # Input Code
+    {full_code}
+
+    # Execution Command
+    The code will be tested with: `{command}`
+    Ensure `sys.argv` or argument parsing remains compatible with this command.
+
+    Return ONLY the complete Python code wrapped in markdown.
+
+  gen_test_script: |
+    You are a Senior QA Automation Engineer. Write a robust, standalone Unit Test script `test_{func_name}.py` for `{func_name}`.
+
+    ### 1. CONTEXT
+    - **Target Function**: `{func_name}` (in `agent_{func_name}.py`).
+    - **Data Source**: `{data_path}` (A `.pkl` file serialized with `dill`).
+    - **Environment**: GPU is available. Inputs/Outputs might be Torch Tensors or CuPy arrays on CUDA.
+    - **Verification Tool**: `verification_utils.py` (located in the same directory).
+
+    ### 2. REFERENCE CODE
+    
+    **A. Target Function Signature**:
+    ```python
+    {standard_code}
+    ```
+    
+    **B. Data Generation Logic (How inputs/outputs were saved)**:
+    ```python
+    {gen_data_code}
+    ```
+
+    ### 3. ASSIGNMENT
+    Write the Python code for `test_{func_name}.py`. Follow these steps strictly:
+
+    1. **Imports**: 
+       - Standard: `sys`, `os`, `dill`.
+       - Target: `from agent_{func_name} import {func_name}`.
+       - Verification: `from verification_utils import recursive_check`.
+    
+    2. **Data Loading**:
+       - Load data: `data = dill.load(open(r'{data_path}', 'rb'))`.
+       - Extract: `args = data['args']`, `kwargs = data['kwargs']`, `expected_output = data['output']`.
+       - *Note*: Data is already in the correct format (Tensor/Array), do NOT convert to CPU manually.
+
+    3. **Execution**:
+       - Run target: `actual_output = {func_name}(*args, **kwargs)`.
+
+    4. **Verification**:
+       - Compare: `passed, msg = recursive_check(expected_output, actual_output)`.
+       - **Strictness**: The test must FAIL (exit code 1) if `passed` is False.
+
+    5. **Reporting**:
+       - **On Failure**: Print `f"TEST FAILED: {{msg}}"` and call `sys.exit(1)`.
+       - **On Success**: Print `"TEST PASSED"` and call `sys.exit(0)`.
+
+    ### 4. OUTPUT FORMAT
+    Return ONLY the complete Python code inside ```python ... ``` blocks. No explanations.
+
+  gen_inverse_test_script: |
+    You are a QA Automation Engineer validating an Optimization/Inversion Algorithm `{func_name}`.
+    
+    ### 1. OBJECTIVE
+    Since this is an optimization task, strict bit-wise equality is NOT required.
+    We verify performance by running the **Standard Evaluation Function** on both the Agent's output and the Standard output, then comparing the scores.
+
+    ### 2. CONTEXT
+    - **Target Function**: `{func_name}` (from `agent_{func_name}.py`).
+    - **Data Source**: `{data_path}` (contains `args`, `kwargs`, and `output` as `std_output`).
+    - **Environment**: GPU available.
+
+    ### 3. REFERENCE MATERIALS
+    
+    **A. Target Function Signature**:
+    ```python
+    {standard_code}
+    ```
+
+    **B. THE REFEREE (Standard Evaluation Logic)**:
+    *You must inject this logic into your test script.*
+    ```python
+    {eval_code}
+    ```
+
+    ### 4. INSTRUCTIONS
+    Write `test_{func_name}.py` following this logic:
+
+    1. **Imports & Setup**:
+       - Import `sys`, `os`, `dill`, `numpy as np`.
+       - **CRITICAL**: Analyze **Reference B**. If `evaluate_results` uses libraries like `skimage`, `pywt`, `cv2`, `torch`, or `matplotlib`, you **MUST** import them at the top of the script.
+       - Import target: `from agent_{func_name} import {func_name}`.
+       - **Do NOT import `evaluate_results` from files.** Define it locally by copying **Reference B** verbatim.
+
+    2. **Data Loading**:
+       - `data = dill.load(open(r'{data_path}', 'rb'))`
+       - `std_output = data['output']`
+
+    3. **Execution**:
+       - `agent_output = {func_name}(*data['args'], **data['kwargs'])`
+
+    4. **Metric Competition**:
+       - Calculate: `score_agent = evaluate_results(agent_output)`
+       - Calculate: `score_std = evaluate_results(std_output)`
+       
+       *Handling Return Values*: 
+       - If `evaluate_results` returns a tuple (e.g., `(psnr, ssim)`), use the first element as the primary score.
+       - If it returns a dictionary, looks for keys like 'psnr', 'score', or 'loss'.
+       - If it returns `None` (only prints), this test strategy fails. Assume it returns a numeric value.
+
+    5. **Verification Logic**:
+       - Print: `print(f"Scores -> Agent: {{score_agent}}, Standard: {{score_std}}")`
+       - **Pass Condition**:
+         - If Metric is "Higher is Better" (e.g., PSNR): `score_agent >= score_std * 0.95`
+         - If Metric is "Lower is Better" (e.g., Loss/MSE): `score_agent <= score_std * 1.05`
+         - (Default to "Higher is Better" logic if unsure, or allow small absolute difference `abs(diff) < 0.5`).
+       - **Reporting**:
+         - Met condition -> `sys.exit(0)`
+         - Failed -> `print("Performance degradation detected."); sys.exit(1)`
+
+    ### 5. OUTPUT FORMAT
+    Return ONLY the complete Python code inside ```python ... ``` blocks.
+  
+  validator:
+    reconstruct_code: |
+      You are an expert Python coder. 
+      Read the following technical explanation of one or several functions:
+      
+      """
+      {explanation_text}
+      """
+      
+      Based STRICTLY on this explanation, write the corresponding Python functions.
+      - Use specific variable names if mentioned in the text.
+      - If the text is vague, make your best guess (this will lower the score, which is intended).
+      - Output ONLY the python code block.
+      - If the technical explanation mentioned several functions, you should implement all of them.
+
+  writer:
+    structure_strategies:
+      main_multi: |
+        The code contains several functions.
+        You Must explain EVERY FUNCTION!
+      main_single: |
+        The code only contain one function.
+      helper_multi: |
+        The code contains several functions.
+        You Must LIST OUT EVERY FUNCTION!
+        Structure Part A (Engineer's View) with two specific subsections:
+        1. **Subsection 1: Architecture Diagram:** Explain the data flow between different functions. Explicitly distinguish between "Static Pre-computation" (Factory) and "Dynamic Runtime" (Forward Pass).
+        2. **Subsection 2: Function-by-Function Logic:** Explain inputs/outputs for every function individually.
+        - Write a step-by-step numbered list mapping the inputs to the outputs.
+        - Explain the logic within the functions clearly.
+        
+        STRICT RULE: Be specific about how functions pass data to each other (e.g., "Function A returns indices used by Function B").
+      helper_single: |
+        The code only contain one function.
+        Structure Part A(Engineer's View) as a linear **Implementation Blueprint**:
+        - Write a step-by-step numbered list mapping the inputs to the outputs.
+        - Explain the logic within the single function clearly.
+        
+        STRICT RULE: Be specific about variable names logic so a coder could reconstruct it.
+
+    instructions:
+      theory: |
+        Write a detailed scientific explanation based on the provided paper.
+        Focus on the theoretical contribution and physical background.
+        Use LaTeX for math.
+      code_main: |
+        write a detailed explanation on how to reproduce the code 
+
+        {structure_instructions}
+        
+        STRICT RULE: After reading your answer, a coder could reproduce the code. The target is to make the reproduced code pass some unitests.
+        ...
+        [CRITICAL HINT: REQUIRED IMPORTS]
+        The following imports are known to be correct and necessary for the environment. 
+        Please ensure your code includes relevant imports from this list if missing:
+
+        {import_hints_str}
+        ...
+      code_helper: |
+        You are writing a subsection for explaining the function {function_name}.
+        Structure this subsection with exactly three parts:
+        1. **Part A: The Engineer's View** (Step-by-step implementation blueprint, easy to reproduce the code based on this content)
+        2. **Part B: The Implementation** (Full code block)
+
+        {structure_instructions}
+        
+        STRICT RULE: In Part A, be specific about variable names logic so a coder could reconstruct it.
+        ...
+        [CRITICAL HINT: REQUIRED IMPORTS]
+        The following imports are known to be correct and necessary for the environment. 
+        Please ensure your code includes relevant imports from this list if missing:
+
+        {import_hints_str}
+        ...
+
+    templates:
+      theory_section: |
+        You are writing Section {n}: "{title}" of a scientific tutorial.
+        
+        CONTEXT FROM PREVIOUS SECTION:
+        "{previous_context}"
+        
+        Start immediately with Section {n}. Connect it to the previous context.
+        
+        {instructions}
+        
+        {code_context}
+
+        The paper is {paper_text}
+
+      code_initial: |
+        You are writing Section {n}: "{title}" of a scientific tutorial.
+        First include a Conceptual Overview with LaTeX math,contain the core math method, but shouldn't be too detailed.
+        Then detail the implementation.
+        
+        {instructions}
+        
+        {code_context}
+
+      code_retry: |
+        You are writing Section {n}: "{title}" of a scientific tutorial.
+        First include a Conceptual Overview with LaTeX math,contain the core math method, but shouldn't be too detailed.
+        Then detail the implementation.
+        
+        {instructions}
+        
+        {code_context}
+
+        And by following your previous answer, 
+        {part_b_text}
+
+        the coder reproduce the code:
+        {recon_code}
+
+        And the reason for not passing the test is {hint_for_tutorial}
+
+        And the coder used to make this mistakes:
+        {formatted_error_history}
+        Please be careful not to make the coder have the same error again!!
+
+        Analyse the difference between the reference code and the reproduced code, adding more information to your answer!
+      
+      helper_retry: |
+        You are writing Section {n}: "{title}" of a scientific tutorial.
+        
+        CONTEXT FROM PREVIOUS SECTION:
+        "{previous_context}"
+        
+        Start immediately with Section {n}. Connect it to the previous context.
+        
+        {instructions}
+        
+        {code_context}
+
+        And by following your previous Part B: The Engineer's View, 
+        {part_b_text}
+
+        the coder reproduce the code:
+        {recon_code}
+
+        Analyse the difference between the reference code and the reproduced code, adding more information to your previous Part B or revising it to make its content be more clear to make the coder understand.
+
+output_dir: output/
+
+uni_test_output_dir: run_code/
